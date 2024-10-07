@@ -2,7 +2,10 @@
 title: "Assignment 1"
 author: "Jinran Li"
 date: "2024-10-02"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
 ---
 
 ```{r}
@@ -19,7 +22,6 @@ library(tidyverse)
 
 
 ```{r}
-#| label: read data - glimpse 
 
 strawberry <- read_csv("strawberries25_v3.csv", col_names = TRUE)
 
@@ -28,31 +30,32 @@ glimpse(strawberry)
 ```{r}
 
 strawberry <- strawberry %>%
-  mutate(Value = as.numeric(str_replace_all(Value, "[^0-9\\.]", NA_character_)))
+mutate(Value = as.numeric(str_replace_all(Value, "[^0-9\\.]", "")))
 
 str(strawberry$Value)
+
 head(strawberry$Value)
 
 ```
-
-
 ```{r}
-na_county <- top4_county_acres %>%
-  filter(is.na(County))
+state_county_acres <- strawberry %>%
+  filter(State %in% c("CALIFORNIA", "FLORIDA")) %>%
+  filter(str_detect(`Data Item`, "ACRES"))
 
-# check the NA value
-na_total_acres <- top4_county_acres %>%
-  filter(is.na(Total_Acres) | Total_Acres == 0)
+state_county_acres <- state_county_acres %>%
+  mutate(Type = ifelse(str_detect(`Data Item`, "BEARING"), "Conventional", "Organic"))
 
-# print
-print("Missing Counties:")
-print(na_county)
+state_county_acres <- state_county_acres %>%
+  select(State, County, Type, Value) %>%
+  mutate(Value = as.numeric(Value))
 
-print("Missing or Zero Acreage Data:")
-print(na_total_acres)
-
-
+state_county_acres <- state_county_acres %>%
+  group_by(State, County, Type) %>%
+  summarize(Total_Acres = sum(Value, na.rm = TRUE)) %>%
+  ungroup()
 ```
+
+
 ```{r}
 top2_states_all_types <- state_county_acres %>%
   filter(State %in% c("CALIFORNIA", "FLORIDA")) %>%
@@ -74,12 +77,23 @@ ggplot(top2_states_all_types, aes(x = reorder(County, -Total_Acres), y = Total_A
         panel.spacing = unit(1, "lines"))  
 ```
 ```{r}
+county_acreage_proportion <- state_county_acres %>%
+  group_by(State) %>%
+  mutate(State_Total_Acres = sum(Total_Acres, na.rm = TRUE)) %>%  
+  ungroup() %>%
+  mutate(Percentage = (Total_Acres / State_Total_Acres) * 100) %>%  
+  select(State, County, Type, Total_Acres, State_Total_Acres, Percentage) 
+
+
+```
+
+```{r}
 
 # acreage proportion
 county_acreage_proportion <- county_acreage_proportion %>%
   filter(County %in% c("SANTA BARBARA", "VENTURA", "MIAMI-DADE", "HILLSBOROUGH", "PASCO", "POLK", "ORANGE"))  # select country
 
-# 绘制条形图，并使用 facet_wrap 分面展示
+# 
 ggplot(county_acreage_proportion, aes(x = reorder(County, -Percentage), y = Percentage, fill = County)) +
   geom_bar(stat = "identity") +
   coord_flip() +  # flip

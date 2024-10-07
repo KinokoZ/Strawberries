@@ -17,6 +17,7 @@ output:
 library(knitr)  
 library(kableExtra)
 library(tidyverse)
+library(stringr)
 
 ```
 
@@ -31,6 +32,9 @@ glimpse(strawberry)
 
 strawberry <- strawberry %>%
 mutate(Value = as.numeric(str_replace_all(Value, "[^0-9\\.]", "")))
+
+strawberry <- strawberry %>%
+  filter(!is.na(Value)) 
 
 str(strawberry$Value)
 
@@ -51,7 +55,7 @@ state_county_acres <- state_county_acres %>%
 
 state_county_acres <- state_county_acres %>%
   group_by(State, County, Type) %>%
-  summarize(Total_Acres = sum(Value, na.rm = TRUE)) %>%
+  summarize(Total_Acres = sum(Value, na.rm = TRUE), .groups = "drop") %>%
   ungroup()
 ```
 
@@ -107,4 +111,33 @@ ggplot(county_acreage_proportion, aes(x = reorder(County, -Percentage), y = Perc
         plot.title = element_text(hjust = 0.5)) 
 
 ```
+```{r}
+
+# 1. Define a function to split `Domain Category` into `Use`, `Name`, and `Code`
+split_chemical_data <- function(item) {
+  # Use a detailed regular expression to match complex chemical information
+  match <- str_match(item, "CHEMICAL,\\s*(\\w+):\\s*\\(([^=]+)\\s*=\\s*(\\d+)\\)")
+  
+  if (!is.na(match[1])) {
+    return(data.frame(Use = match[2], Name = match[3], Code = match[4], stringsAsFactors = FALSE))
+  } else {
+    return(data.frame(Use = NA, Name = NA, Code = NA, stringsAsFactors = FALSE))
+  }
+}
+
+# 2. Apply the function to the `Domain Category` column and create new columns
+strawberry_cleaned <- strawberry %>%
+  # Apply to rows where `Domain Category` contains "CHEMICAL"
+  filter(grepl("CHEMICAL", `Domain Category`)) %>%
+  rowwise() %>%
+  mutate(Use = split_chemical_data(`Domain Category`)$Use,
+         Name = split_chemical_data(`Domain Category`)$Name,
+         Code = split_chemical_data(`Domain Category`)$Code) %>%
+  ungroup()
+
+head(strawberry_cleaned)
+
+
+```
+
 

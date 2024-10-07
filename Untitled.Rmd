@@ -40,11 +40,11 @@ head(strawberry$Value)
 na_county <- top4_county_acres %>%
   filter(is.na(County))
 
-# 检查 `Total_Acres` 中的 `NA` 值
+# check the NA value
 na_total_acres <- top4_county_acres %>%
   filter(is.na(Total_Acres) | Total_Acres == 0)
 
-# 输出结果，查看 `NA` 情况
+# print
 print("Missing Counties:")
 print(na_county)
 
@@ -60,29 +60,29 @@ top2_states_all_types <- state_county_acres %>%
   top_n(5, wt = Total_Acres) %>%
   ungroup()
 
-# 绘制包含两种类型的柱状图
+# plot 
 ggplot(top2_states_all_types, aes(x = reorder(County, -Total_Acres), y = Total_Acres, fill = Type)) +
   geom_bar(stat = "identity", position = "dodge") +
-  coord_flip() +  # 使用横向柱状图
+  coord_flip() +  # flip
   facet_wrap(~ State, scales = "free") +
   labs(title = "Top Counties in Major Strawberry Producing States (California and Florida)",
        x = "County",
        y = "Total Acreage",
        fill = "Type") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 0, hjust = 1),  # 调整横向标签格式
-        panel.spacing = unit(1, "lines"))  # 增加子图之间的间隔
+  theme(axis.text.x = element_text(angle = 0, hjust = 1), 
+        panel.spacing = unit(1, "lines"))  
 ```
 ```{r}
 
-# 加州和佛州主要县的草莓总种植面积
+# acreage proportion
 county_acreage_proportion <- county_acreage_proportion %>%
-  filter(County %in% c("SANTA BARBARA", "VENTURA", "MIAMI-DADE", "HILLSBOROUGH", "PASCO", "POLK", "ORANGE"))  # 选择前几个县
+  filter(County %in% c("SANTA BARBARA", "VENTURA", "MIAMI-DADE", "HILLSBOROUGH", "PASCO", "POLK", "ORANGE"))  # select country
 
 # 绘制条形图，并使用 facet_wrap 分面展示
 ggplot(county_acreage_proportion, aes(x = reorder(County, -Percentage), y = Percentage, fill = County)) +
   geom_bar(stat = "identity") +
-  coord_flip() +  # 旋转条形图
+  coord_flip() +  # flip
   facet_wrap(~ State, scales = "free") +
   labs(title = "Proportion of Strawberry Acreage by Major Counties in California and Florida",
        x = "County",
@@ -90,7 +90,7 @@ ggplot(county_acreage_proportion, aes(x = reorder(County, -Percentage), y = Perc
        fill = "County") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(hjust = 0.5))  # 中心对齐标题
+        plot.title = element_text(hjust = 0.5)) 
 
 ```
 

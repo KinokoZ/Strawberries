@@ -1,0 +1,177 @@
+---
+title: "Assignment 1"
+author: "Jinran Li"
+date: "2024-10-02"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r}
+#| label: load libraries and set options
+#| warning: false
+#| message: false
+#| 
+
+library(knitr)  
+library(kableExtra)
+library(tidyverse)
+library(stringr)
+library(dplyr)
+library(readr)
+```
+
+
+```{r}
+
+strawberry <- read_csv("strawberries25_v3.csv", col_names = TRUE)
+
+glimpse(strawberry)
+```
+```{r}
+
+strawberry <- strawberry %>%
+mutate(Value = as.numeric(str_replace_all(Value, "[^0-9\\.]", "")))
+
+strawberry <- strawberry %>%
+  filter(!is.na(Value)) 
+
+str(strawberry$Value)
+
+head(strawberry$Value)
+
+```
+```{r}
+state_county_acres <- strawberry %>%
+  filter(State %in% c("CALIFORNIA", "FLORIDA")) %>%
+  filter(str_detect(`Data Item`, "ACRES"))
+
+state_county_acres <- state_county_acres %>%
+  mutate(Type = ifelse(str_detect(`Data Item`, "BEARING"), "Conventional", "Organic"))
+
+state_county_acres <- state_county_acres %>%
+  select(State, County, Type, Value) %>%
+  mutate(Value = as.numeric(Value))
+
+state_county_acres <- state_county_acres %>%
+  group_by(State, County, Type) %>%
+  summarize(Total_Acres = sum(Value, na.rm = TRUE), .groups = "drop") %>%
+  ungroup()
+```
+
+
+```{r}
+top2_states_all_types <- state_county_acres %>%
+  filter(State %in% c("CALIFORNIA", "FLORIDA")) %>%
+  group_by(State, Type) %>%
+  top_n(5, wt = Total_Acres) %>%
+  ungroup()
+
+# plot 
+ggplot(top2_states_all_types, aes(x = reorder(County, -Total_Acres), y = Total_Acres, fill = Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +  # flip
+  facet_wrap(~ State, scales = "free") +
+  labs(title = "Top Counties in Major Strawberry Producing States (California and Florida)",
+       x = "County",
+       y = "Total Acreage",
+       fill = "Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1), 
+        panel.spacing = unit(1, "lines"))  
+```
+```{r}
+county_acreage_proportion <- state_county_acres %>%
+  group_by(State) %>%
+  mutate(State_Total_Acres = sum(Total_Acres, na.rm = TRUE)) %>%  
+  ungroup() %>%
+  mutate(Percentage = (Total_Acres / State_Total_Acres) * 100) %>%  
+  select(State, County, Type, Total_Acres, State_Total_Acres, Percentage) 
+
+
+```
+
+```{r}
+
+# acreage proportion
+county_acreage_proportion <- county_acreage_proportion %>%
+  filter(County %in% c("SANTA BARBARA", "VENTURA", "MIAMI-DADE", "HILLSBOROUGH", "PASCO", "POLK", "ORANGE"))  # select country
+
+# 
+ggplot(county_acreage_proportion, aes(x = reorder(County, -Percentage), y = Percentage, fill = County)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # flip
+  facet_wrap(~ State, scales = "free") +
+  labs(title = "Proportion of Strawberry Acreage by Major Counties in California and Florida",
+       x = "County",
+       y = "Proportion (%)",
+       fill = "County") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5)) 
+
+```
+```{r}
+
+# 1. Define a function to split `Domain Category` into `Use`, `Name`, and `Code`
+split_chemical_data <- function(item) {
+  # Use a detailed regular expression to match complex chemical information
+  match <- str_match(item, "CHEMICAL,\\s*(\\w+):\\s*\\(([^=]+)\\s*=\\s*(\\d+)\\)")
+  
+  if (!is.na(match[1])) {
+    return(data.frame(Use = match[2], Name = match[3], Code = match[4], stringsAsFactors = FALSE))
+  } else {
+    return(data.frame(Use = NA, Name = NA, Code = NA, stringsAsFactors = FALSE))
+  }
+}
+
+# 2. Apply the function to the `Domain Category` column and create new columns
+strawberry_cleaned <- strawberry %>%
+  # Apply to rows where `Domain Category` contains "CHEMICAL"
+  filter(grepl("CHEMICAL", `Domain Category`)) %>%
+  rowwise() %>%
+  mutate(Use = split_chemical_data(`Domain Category`)$Use,
+         Name = split_chemical_data(`Domain Category`)$Name,
+         Code = split_chemical_data(`Domain Category`)$Code) %>%
+  ungroup()
+
+head(strawberry_cleaned)
+
+
+```
+```{r}
+use_counts <- strawberry_cleaned %>%
+  group_by(Use) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+print(use_counts)
+
+strawberry_cleaned <- strawberry_cleaned %>%
+  filter(!is.na(Name))
+
+name_counts <- strawberry_cleaned %>%
+  group_by(Name) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+print(name_counts)
+
+
+
+ggplot(use_counts, aes(x = reorder(Use, -Count), y = Count)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Frequency of Use Categories", x = "Use", y = "Count")
+
+top_n_names <- name_counts %>%
+  top_n(10, wt = Count)
+
+
+ggplot(top_n_names, aes(x = reorder(Name, -Count), y = Count)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 10 Most Frequent Name Categories", x = "Name", y = "Count")
+```
+

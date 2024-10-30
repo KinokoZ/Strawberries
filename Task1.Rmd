@@ -30,88 +30,103 @@ strawberry <- read_csv("strawberries25_v3.csv", col_names = TRUE)
 glimpse(strawberry)
 ```
 ```{r}
+strawberry <- strawberry |> 
+  filter(`Geo Level`== "NATIONAL" | `Geo Level`== "STATE")
+```
 
-strawberry <- strawberry %>%
-mutate(Value = as.numeric(str_replace_all(Value, "[^0-9\\.]", "")))
+```{r}
+straw_cen <- strawberry |> filter(Program=="CENSUS")
 
-strawberry <- strawberry %>%
-  filter(!is.na(Value)) 
+straw_sur <- strawberry |> filter(Program=="SURVEY")
 
-str(strawberry$Value)
+straw_cen <- straw_cen |> drop_one_value_col()
 
-head(strawberry$Value)
+straw_sur <- straw_sur |> drop_one_value_col()
+
+rm(strawberry)
+```
+
+```{r}
+## isolate organic
+
+straw_cen <- straw_cen |>
+  separate_wider_delim(  cols = strawberries,
+                         delim = ", ",
+                         names = c("strawberries",
+                                 "ORGANIC",
+                                 "organic_detail"),
+                         
+                         too_many = "error",
+                         too_few = "align_start"
+                       )
+
+straw_cen <- straw_cen |> drop_one_value_col()
+
+## how many organic rows?
+
+organic_cen <- straw_cen |> filter(ORGANIC == "ORGANIC")
+
+## sum(is.na(straw_cen$ORGANIC))
+
+straw_cen <- straw_cen[(is.na(straw_cen$ORGANIC)),]
+
+
+straw_cen <- straw_cen |> drop_one_value_col()
+
+
 
 ```
+
+
+
 ```{r}
-state_county_acres <- strawberry %>%
+#| label: explore organic_cen
+#| echo: false
+
+organic_cen <- organic_cen |> drop_one_value_col()
+
+organic_cen
+
+
+
+
+```
+
+```{r}
+#| label: dim
+#| echo: false
+
+
+#Looking at what's missing in our strawberry_census dataframes
+
+aa <- dim(straw_cen |> filter(is.na(Value)))
+bb <- dim(organic_cen |> filter(is.na(Value)))
+```
+
+
+
+```{r}
+state_acres <- strawberry %>%
   filter(State %in% c("CALIFORNIA", "FLORIDA")) %>%
-  filter(str_detect(`Data Item`, "ACRES"))
-
-state_county_acres <- state_county_acres %>%
-  mutate(Type = ifelse(str_detect(`Data Item`, "BEARING"), "Conventional", "Organic"))
-
-state_county_acres <- state_county_acres %>%
-  select(State, County, Type, Value) %>%
-  mutate(Value = as.numeric(Value))
-
-state_county_acres <- state_county_acres %>%
-  group_by(State, County, Type) %>%
+  filter(str_detect(`Data Item`, "ACRES")) %>%
+  mutate(Type = ifelse(str_detect(`Data Item`, "BEARING"), "Conventional", "Organic")) %>%
+  select(State, Type, Value) %>%
+  mutate(Value = as.numeric(Value)) %>%
+  group_by(State, Type) %>%
   summarize(Total_Acres = sum(Value, na.rm = TRUE), .groups = "drop") %>%
   ungroup()
-```
 
-
-```{r}
-top2_states_all_types <- state_county_acres %>%
-  filter(State %in% c("CALIFORNIA", "FLORIDA")) %>%
-  group_by(State, Type) %>%
-  top_n(5, wt = Total_Acres) %>%
-  ungroup()
-
-# plot 
-ggplot(top2_states_all_types, aes(x = reorder(County, -Total_Acres), y = Total_Acres, fill = Type)) +
+# Plotting the data
+ggplot(state_acres, aes(x = State, y = Total_Acres, fill = Type)) +
   geom_bar(stat = "identity", position = "dodge") +
-  coord_flip() +  # flip
-  facet_wrap(~ State, scales = "free") +
-  labs(title = "Top Counties in Major Strawberry Producing States (California and Florida)",
-       x = "County",
-       y = "Total Acreage",
-       fill = "Type") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 0, hjust = 1), 
-        panel.spacing = unit(1, "lines"))  
-```
-```{r}
-county_acreage_proportion <- state_county_acres %>%
-  group_by(State) %>%
-  mutate(State_Total_Acres = sum(Total_Acres, na.rm = TRUE)) %>%  
-  ungroup() %>%
-  mutate(Percentage = (Total_Acres / State_Total_Acres) * 100) %>%  
-  select(State, County, Type, Total_Acres, State_Total_Acres, Percentage) 
-
-
+  labs(title = "Strawberry Acreage in California and Florida",
+       x = "State",
+       y = "Total Acres") +
+  theme_minimal()
 ```
 
-```{r}
 
-# acreage proportion
-county_acreage_proportion <- county_acreage_proportion %>%
-  filter(County %in% c("SANTA BARBARA", "VENTURA", "MIAMI-DADE", "HILLSBOROUGH", "PASCO", "POLK", "ORANGE"))  # select country
 
-# 
-ggplot(county_acreage_proportion, aes(x = reorder(County, -Percentage), y = Percentage, fill = County)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +  # flip
-  facet_wrap(~ State, scales = "free") +
-  labs(title = "Proportion of Strawberry Acreage by Major Counties in California and Florida",
-       x = "County",
-       y = "Proportion (%)",
-       fill = "County") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(hjust = 0.5)) 
-
-```
 ```{r}
 
 # 1. Define a function to split `Domain Category` into `Use`, `Name`, and `Code`
@@ -173,5 +188,43 @@ ggplot(top_n_names, aes(x = reorder(Name, -Count), y = Count)) +
   geom_bar(stat = "identity") +
   coord_flip() +
   labs(title = "Top 10 Most Frequent Name Categories", x = "Name", y = "Count")
+```
+```{r}
+
+# 加载 INSECTICIDE 和 FUNGICIDE 的健康数据
+insecticide_data <- read.csv("DTXSID9020243 Hazard Point of Departure for human-2024-10-21.csv")
+fungicide_data <- read.csv("DTXSID1032359 Hazard Point of Departure for human-2024-10-21.csv")
+
+
+# 提取主要健康效应类别并进行汇总
+insecticide_summary <- insecticide_data %>%
+  mutate(Main_Effect = str_extract(Critical.effect, "^[^/|]+")) %>%  # 提取关键效应的主要类别
+  group_by(Main_Effect) %>%
+  summarize(
+    Mean_Dose = mean(as.numeric(Value), na.rm = TRUE),
+    Occurrences = n()
+  ) %>%
+  arrange(desc(Occurrences))
+
+fungicide_summary <- fungicide_data %>%
+  mutate(Main_Effect = str_extract(Critical.effect, "^[^/|]+")) %>%  # 提取关键效应的主要类别
+  group_by(Main_Effect) %>%
+  summarize(
+    Mean_Dose = mean(as.numeric(Value), na.rm = TRUE),
+    Occurrences = n()
+  ) %>%
+  arrange(desc(Occurrences))
+
+# 输出汇总后的结果
+cat("INSECTICIDE Main Health Effects Summary:\n")
+print(insecticide_summary)
+
+cat("\nFUNGICIDE Main Health Effects Summary:\n")
+print(fungicide_summary)
+
+
+
+    
+
 ```
 

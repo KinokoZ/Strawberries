@@ -34,74 +34,8 @@ strawberry <- strawberry |>
   filter(`Geo Level`== "NATIONAL" | `Geo Level`== "STATE")
 ```
 
-```{r}
-straw_cen <- strawberry |> filter(Program=="CENSUS")
-
-straw_sur <- strawberry |> filter(Program=="SURVEY")
-
-straw_cen <- straw_cen |> drop_one_value_col()
-
-straw_sur <- straw_sur |> drop_one_value_col()
-
-rm(strawberry)
-```
-
-```{r}
-## isolate organic
-
-straw_cen <- straw_cen |>
-  separate_wider_delim(  cols = strawberries,
-                         delim = ", ",
-                         names = c("strawberries",
-                                 "ORGANIC",
-                                 "organic_detail"),
-                         
-                         too_many = "error",
-                         too_few = "align_start"
-                       )
-
-straw_cen <- straw_cen |> drop_one_value_col()
-
-## how many organic rows?
-
-organic_cen <- straw_cen |> filter(ORGANIC == "ORGANIC")
-
-## sum(is.na(straw_cen$ORGANIC))
-
-straw_cen <- straw_cen[(is.na(straw_cen$ORGANIC)),]
 
 
-straw_cen <- straw_cen |> drop_one_value_col()
-
-
-
-```
-
-
-
-```{r}
-#| label: explore organic_cen
-#| echo: false
-
-organic_cen <- organic_cen |> drop_one_value_col()
-
-organic_cen
-
-
-
-
-```
-
-```{r}
-#| label: dim
-#| echo: false
-
-
-#Looking at what's missing in our strawberry_census dataframes
-
-aa <- dim(straw_cen |> filter(is.na(Value)))
-bb <- dim(organic_cen |> filter(is.na(Value)))
-```
 
 
 
@@ -191,14 +125,14 @@ ggplot(top_n_names, aes(x = reorder(Name, -Count), y = Count)) +
 ```
 ```{r}
 
-# 加载 INSECTICIDE 和 FUNGICIDE 的健康数据
+
 insecticide_data <- read.csv("DTXSID9020243 Hazard Point of Departure for human-2024-10-21.csv")
 fungicide_data <- read.csv("DTXSID1032359 Hazard Point of Departure for human-2024-10-21.csv")
 
 
-# 提取主要健康效应类别并进行汇总
+
 insecticide_summary <- insecticide_data %>%
-  mutate(Main_Effect = str_extract(Critical.effect, "^[^/|]+")) %>%  # 提取关键效应的主要类别
+  mutate(Main_Effect = str_extract(Critical.effect, "^[^/|]+")) %>%  
   group_by(Main_Effect) %>%
   summarize(
     Mean_Dose = mean(as.numeric(Value), na.rm = TRUE),
@@ -207,7 +141,7 @@ insecticide_summary <- insecticide_data %>%
   arrange(desc(Occurrences))
 
 fungicide_summary <- fungicide_data %>%
-  mutate(Main_Effect = str_extract(Critical.effect, "^[^/|]+")) %>%  # 提取关键效应的主要类别
+  mutate(Main_Effect = str_extract(Critical.effect, "^[^/|]+")) %>% 
   group_by(Main_Effect) %>%
   summarize(
     Mean_Dose = mean(as.numeric(Value), na.rm = TRUE),
@@ -215,7 +149,7 @@ fungicide_summary <- fungicide_data %>%
   ) %>%
   arrange(desc(Occurrences))
 
-# 输出汇总后的结果
+
 cat("INSECTICIDE Main Health Effects Summary:\n")
 print(insecticide_summary)
 
